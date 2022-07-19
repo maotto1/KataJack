@@ -19,24 +19,23 @@ class House {
         "the house that jack build"
     )
 
+    private fun prepareData() = elements.also { it[it.size - 1] = it.last() + "." }
+
     private val sentenceBeginning = "This is"
 
     /**
      * Returns the full Poem as a String
      */
-    fun recite(): String? {
-//        prepareData().reverse().stringConcat()
-        return (1..elements.size).mapIndexed{ index, _ ->
+    fun recite(): String {
+        return (1..elements.size).mapIndexed { index, _ ->
             sentenceBeginning + constructPhrase(index)
-        }.reduce{acc, phrase -> acc + "\n\n" + phrase}
+        }.reduce { acc, phrase -> acc + "\n\n" + phrase }
     }
 
-    private fun prepareData() = elements.also { it[it.size-1] = it.last() + "." }
-
-    private fun constructPhrase(index: Int): String{
-        if (index >= elements.size){
+    private fun constructPhrase(index: Int): String {
+        if (index >= elements.size) {
             return "."
         }
-        return " " + elements.getOrElse(index) { "" } + constructPhrase(index+1)
+        return " " + elements.getOrElse(index) { "" } + constructPhrase(index + 1)
     }
 }
