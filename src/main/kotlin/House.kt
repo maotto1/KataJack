@@ -1,6 +1,6 @@
 
 
-class House {
+open class House {
     /**
      * List of elements of the poem
      */
@@ -19,8 +19,6 @@ class House {
         "the house that jack build"
     )
 
-    private fun prepareData() = elements.also { it[it.size - 1] = it.last() + "." }
-
     private val sentenceBeginning = "This is"
 
     /**
@@ -29,13 +27,21 @@ class House {
     fun recite(): String {
         return (1..elements.size).mapIndexed { index, _ ->
             sentenceBeginning + constructPhrase(index)
-        }.reduce { acc, phrase -> acc + "\n\n" + phrase }
+        }.reduce { acc, phrase -> acc + "\n\n" + phrase }.plus("\n")
     }
 
     private fun constructPhrase(index: Int): String {
         if (index >= elements.size) {
             return "."
         }
-        return " " + elements.getOrElse(index) { "" } + constructPhrase(index + 1)
+        return constructPhraseMiddle(index) + constructPhrase(index + 1)
+    }
+
+    protected open fun constructPhraseMiddle(index: Int) = " " + elements.getOrElse(index) { "" }
+}
+
+class EchoHouse : House() {
+    override fun constructPhraseMiddle(index: Int): String {
+        return super.constructPhraseMiddle(index) + super.constructPhraseMiddle(index)
     }
 }
