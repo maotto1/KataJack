@@ -8,12 +8,21 @@ data class BowlingMove(
         BowlingMoveBonus.STRIKE_BONUS -> pinsFirst + pinsSecond
         null -> 0
     }
+
+    fun isOver() =
+        BowlingMoveBonus.meritsBonus(this) == BowlingMoveBonus.STRIKE_BONUS || pinsSecond > -1
     // TODO: evaluate -1
 }
 
 enum class BowlingMoveBonus {
     SPARE_BONUS,
     STRIKE_BONUS;
+
+    fun countsDouble(throwNumber: Int) = when {
+        throwNumber == 1 -> true
+        throwNumber == 2 && this == STRIKE_BONUS -> true
+        else -> false
+    }
 
     companion object {
         fun meritsBonus(move: BowlingMove) = when {
