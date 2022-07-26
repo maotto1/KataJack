@@ -13,11 +13,11 @@ abstract class Game {
     abstract fun isOver(): Boolean
 }
 
-class BowlingGame : Game(private var gameState: GameState = GameState()) {
-
-    private var actualMove: BowlingMove = BowlingMove(activeBonus = null)
+class BowlingGame(private var gameState: GameState = GameState()) : Game() {
 
     private var score = 0
+
+    private var actualMove: BowlingMove = NormalBowlingMove(activeBonus = null)
 
     init {
         actualMove = throwsToMove(gameState.actualThrows, gameState.activeBonus())
@@ -29,37 +29,37 @@ class BowlingGame : Game(private var gameState: GameState = GameState()) {
     private fun previousMovesScore() = gameState.moves.sumOf { it.evaluate() } ?: 0
 
     override fun roll(pins: Int) {
+        println("new throw: $pins played,")
         handleThrow(pins)
         handleMove(pins)
-    }
-
-    private fun updateScore(pins: Int) = score + actualMove.evaluate()
-
-    private fun updateMove(pins: Int) = when {
-        actualMove.pinsFirst == -1 && !isStrike(pins) ->
-            actualMove.copy(pinsFirst = pins)
-        actualMove.pinsFirst == -1 -> BowlingMove(activeBonus = BowlingMoveBonus.STRIKE_BONUS)
-        actualMove.pinsSecond == -1 ->
-            actualMove.copy(pinsSecond = pins)
-        else -> BowlingMove(activeBonus = BowlingMoveBonus.meritsBonus(actualMove))
+//        actualMove = updateMove(pins)
+//        actualMove.isOver()
     }
 
     private fun throwsToMove(bowlingThrows: List<BowlingThrow>, activeBonus: BowlingMoveBonus?) =
-        BowlingMove(
+        NormalBowlingMove(
             activeBonus = activeBonus,
             pinsFirst = bowlingThrows.firstOrNull()?.pins ?: -1,
-            pinsSecond = bowlingThrows.getOrNull(1)?.pins ?: -1,
+            pinsSecond = bowlingThrows.getOrNull(1)?.pins ?: -1
         )
 
-    private fun handleThrow(pins: Int){
+    private fun throwsToBonusMove(bowlingThrows: List<BowlingThrow>) = when (actualMove) {
+        is LastSpareBonusMove -> LastSpareBonusMove(pins = bowlingThrows.firstOrNull()?.pins ?: -1)
+        is LastStrikeBonusMove ->
+            LastStrikeBonusMove(
+                pinsFirst = bowlingThrows.firstOrNull()?.pins ?: -1,
+                pinsSecond = bowlingThrows.getOrNull(1)?.pins ?: -1
+            )
+        else -> throwsToMove(bowlingThrows, activeBonus = null)
+    }
+
+    private fun handleThrow(pins: Int) {
         val newThrow = createThrow(pins)
         gameState.actualThrows.add(newThrow)
     }
 
-    private fun createMove(lastMove: BowlingMove) = BowlingMove(activeBonus = BowlingMoveBonus.meritsBonus(lastMove))
-
     private fun createThrow(pins: Int): BowlingThrow {
-        val number = (gameState.actualThrows.size) +1
+        val number = (gameState.actualThrows.size) + 1
         return BowlingThrow(
             throwNumber = number,
             pins = pins,
@@ -67,23 +67,61 @@ class BowlingGame : Game(private var gameState: GameState = GameState()) {
         )
     }
 
-    private fun handleMove(pins: Int){
-        actualMove = throwsToMove(gameState.actualThrows, activeBonus = actualMove.activeBonus)
-        if (actualMove.isOver()){
+    private fun handleMove(pins: Int) = when (actualMove) {
+        is NormalBowlingMove -> {
+            handleNormalMove(actualMove as NormalBowlingMove)
+        }
+        is LastSpareBonusMove, is LastStrikeBonusMove -> {
+            actualMove = throwsToBonusMove(gameState.actualThrows)
+            if (actualMove.isOver()) {
+                gameState.finishMove(actualMove)
+            }
+            println(" \t score is now ${score()} and the game is  ${isOver()}.\n")
+        }
+        else -> null
+    }
+
+    private fun handleNormalMove(move: NormalBowlingMove) {
+        actualMove = throwsToMove(gameState.actualThrows, activeBonus = move.activeBonus)
+        println(" \t score is now ${score()} and the game is  ${isOver()}.\n")
+        if (actualMove.isOver()) {
             gameState.finishMove(actualMove)
-            actualMove = createMove(lastMove = actualMove)
-            println("new move after this")
+            if (isOver()) return
+            actualMove = if (wasLast()) {
+                createBonusMove(lastMove = actualMove as NormalBowlingMove) ?: NormalBowlingMove(activeBonus = null)
+            } else createMove(lastMove = actualMove as NormalBowlingMove)
+            println("new move after this \n -------------------------------------------------")
         }
     }
 
+//    private fun handleBonusMove
 
-    private fun isStrike(pins: Int): Boolean = pins == 10
+    private fun createBonusMove(lastMove: NormalBowlingMove) = when (BowlingMoveBonus.meritsBonus(lastMove)) {
+        BowlingMoveBonus.STRIKE_BONUS -> LastStrikeBonusMove()
+        BowlingMoveBonus.SPARE_BONUS -> LastSpareBonusMove()
+        else -> null
+    }
+
+    private fun createMove(lastMove: NormalBowlingMove) = NormalBowlingMove(activeBonus = BowlingMoveBonus.meritsBonus(lastMove))
+
+    private fun updateScore(pins: Int) = score + actualMove.evaluate()
+
+//    private fun updateMove(pins: Int) = when {
+//        actualMove.pinsFirst == -1 && !isStrike(pins) ->
+//            actualMove.copy(pinsFirst = pins)
+//        actualMove.pinsFirst == -1 -> BowlingMove(activeBonus = BowlingMoveBonus.STRIKE_BONUS)
+//        actualMove.pinsSecond == -1 ->
+//            actualMove.copy(pinsSecond = pins)
+//        else -> BowlingMove(activeBonus = BowlingMoveBonus.meritsBonus(actualMove))
+//    }
+
+    private fun wasLast() = gameState.moves.size == 10
 
     override fun score(): Int {
         return previousMovesScore() + actualMoveIntermediateScore()
     }
 
     override fun isOver(): Boolean {
-        return gameState.moves.size < 11
+        return gameState.moves.size > 10
     }
 }
